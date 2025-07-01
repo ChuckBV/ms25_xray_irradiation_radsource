@@ -1,0 +1,75 @@
+---
+title: "Experiment 2 -- Mating"
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Overview
+
+For experiment 2, males and females were exposed to 0, 100, 200, 300, or 400 Gy
+x-ray and placed overnight in a 30 ml plastic cup with a non-exposed moth
+of the opposite sex for an opportunity to mate. Afterward the females was 
+isolated and place in an oviposition jar until death. After death the female
+was detected to determine if there was a spermatophore, indicating successful
+mating.
+
+```{r load_data, message=FALSE, warning=FALSE}
+library(readxl)
+df_mating <- read_excel("Dataset.xlsx", sheet = "Mating_400Gy")
+df_mating
+```
+
+## Summary of mating success
+
+Obtain a table indicated number and percent of moths mated.
+
+```{r summarise_mating, message=FALSE, warning=FALSE}
+library(dplyr)
+tbl_mating <- df_mating %>% 
+  group_by(sex,dose) %>% 
+  summarise(nMated = sum(mate == "Yes"),
+            nNot = sum(mate == "No"),
+            nTotal = sum(!is.na(mate)),
+            prop_mated = nMated/nTotal)
+write.csv(tbl_mating,"expt2_mating_summary.csv",row.names = F)
+tbl_mating
+```
+
+## Data Analysis
+
+Examine whether there are signficant differenct due to sex or irradiation using
+a GLM binomial model with both categories categorical.
+
+```{r glm_binomial, message=FALSE, warning=FALSE}
+
+# rename variables for ease of use in formula
+tbl_mating2 <- tbl_mating %>% 
+  rename(y = nMated,
+         n = nTotal)
+
+# Make dose a categorical variable
+tbl_mating2$dose <- as.factor(tbl_mating2$dose)
+
+# Fit a logistic regression model using glm with binomial family
+m1 <- glm(cbind(y,n) ~ sex + dose, data = tbl_mating2, family = binomial)
+
+# Examine model summary for sake of completeness
+summary(m1)
+```
+Using Deviance residual chi-square and df to check model fit
+
+```{r model_fit, message=FALSE, warning=FALSE}
+pchisq(0.75263, df = 4, lower.tail = F)
+```
+
+Get type II Analysis of Deviance
+```{r type_ii, message=FALSE, warning=FALSE}
+library(car)
+Anova(m1, type = "II")
+```
+

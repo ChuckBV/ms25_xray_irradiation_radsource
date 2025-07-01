@@ -1,0 +1,91 @@
+---
+title: "Experiment 1--Flight Cylinder Data"
+output:
+  word_document: default
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Analysis of Flight Cylinder Data: Overview
+
+Reads in data on how many out of 10 navel orangeworm adults left a flight 
+cylinder within 24 hours, creates a summary, and performs a 2-way analysis of
+Deviance with moth performance (y/n, with y as number leaving and n a the 
+number of moths in the flight cylinder).
+
+## Load data into the Global Environment (working memory)
+
+```{r load_dat, warning=FALSE, message=FALSE}
+library(readxl)       # Read Excel files
+library(janitor)      # Clean variable names 
+df_fltcyl <- read_excel("Dataset.xlsx", sheet = "Flight_ability_assay")
+df_fltcyl <- clean_names(df_fltcyl)
+df_fltcyl
+```
+
+## Get and export treatment means and SE
+
+Will use dplyr to get a table of sample size, mean, and standard error by sex
+and radiation dose.
+
+```{r summary, warning=FALSE, message=FALSE}
+library(dplyr)                 # Easy and efficient data wrangling and summary
+library(FSA)                   # Provides an se() function for standard error
+tbl_escapes <- df_fltcyl %>% 
+  group_by(sex,dose) %>% 
+  summarise(nObs = n(),
+            mn = mean(twentyfour_out),
+            sem = se(twentyfour_out))
+write.csv(tbl_escapes,"tbl01_flt_cyl_escapes.csv", row.names = F)
+tbl_escapes
+```
+
+## Statistical Analysis
+
+Will perform the Analysis of Deviance described above using the R-native
+glm() function. The output provides general information on degrees of freedom
+and significance of the main factors and interaction.
+
+```{r glm, warning=FALSE, message=FALSE}
+# Identify Sex and Dose as Factors
+df_fltcyl$sex <- as.factor(df_fltcyl$sex)
+df_fltcyl$dose <- as.factor(df_fltcyl$dose)
+
+# Contastant for number at risk
+df_fltcyl$n <- 10
+df_fltcyl <- df_fltcyl %>% rename(y = twentyfour_out)
+
+# Fit a logistic regression model using glm with binomial family
+m1 <- glm(cbind(y,n) ~ sex * dose, data = df_fltcyl, family = binomial)
+
+# Perform analysis of deviance using ANOVA for the GLM
+anova_results <- anova(m1, test = "Chisq")
+
+# Print results
+print(anova_results)
+```
+
+The 'car' package provides an alternative Anova() function that provides type II
+degrees of freedom. This is often seen as preferable. 
+
+```{r car_type2, warning=FALSE, message=FALSE}
+library(car)
+Anova(m1, type = "II")
+```
+
+## T-test of effect of sex
+
+The binomial GLM indicates that the effect of sex is not statistically 
+significant. The Welch t-test fits broadly because it adjusts to differences in
+standard error between treatment effects. It seems to indicate that there is
+a significant difference, but it can also be argued that the assumptions for 
+the t-test do not adequately account for the upper number of moths leaving 
+being bounded at 10.
+
+```{r}
+t.test(y ~ sex, data = df_fltcyl)
+```

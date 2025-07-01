@@ -1,0 +1,220 @@
+---
+title: "Experiment 1--Longevity data"
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Analysis of longevity data
+
+Done at the same time as the flight cylinder assay (previous script). Same-sex
+groups of 10 moths (all male or all female) in a cage were examined on a daily
+basis, and the number dead since the previous interval and the number of
+survivors were recorded. These data are summarized using Kaplan-Meier 
+survivorship plots and Cox proportional hazard analysis. The data were recorded
+as groups, but the packages used here require one record per moth.
+
+Since around a third of the moths examined were alive at the end of the 
+observation period, a mean longevity has limited meaning while an estimate of
+the median longevity is arguably more informative. The package used to 
+generate the survival curve is also used to get an estimate of median survival
+for each dose with a 95% confidence interval.
+
+
+```{r read_dat, warning=FALSE, message=FALSE}
+library(readxl)
+library(dplyr)
+df_lngvt <- read_excel("Dataset.xlsx", sheet = "nowcox")
+df_lngvt <- df_lngvt %>% 
+  rename(day = dor,
+         gy = dose)
+df_lngvt
+```
+
+## Recode from aggregated to case format
+
+First using the dplyr and tidyr package to creat 1 row for each for death records
+```{r recode1, warning=FALSE, message=FALSE}
+library(tidyr)
+
+# For rows with deaths, create an observation per death using tidyr's uncount()
+events <- df_lngvt %>%
+  filter(mort > 0) %>%                     # only rows where at least one death occurred
+  mutate(time = day, event = 1) %>%          # assign time and indicate event = 1 (death)
+  select(rep, day, sex, gy, time, mort, event) %>% 
+  uncount(weights = mort)                  # expand each row 'mort' times
+
+# Preview event data:
+events
+```
+
+All moths still alive on the last day of observation (day 7) are recorded as
+censored on that day.
+```{r recode2, warning=FALSE, message=FALSE}
+censored <- df_lngvt %>%
+  group_by(rep, sex, gy) %>%
+  slice_tail(n = 1) %>%    # select the final monitoring interval for each group
+  ungroup() %>% 
+  filter(alive > 0) %>%    # only if there are survivors
+  mutate(time = day, event = 0) %>%  # assign time and indicate event = 0 (censored)
+  select(rep, day, sex, gy, time, event, alive) %>%
+  uncount(weights = alive) # expand each row 'alive' times
+
+# Preview censored data:
+censored
+```
+
+Now combine the events and censored observations
+```{r recode3, warning=FALSE, message=FALSE}
+# Combine events and censored observations
+indiv_data <- bind_rows(events, censored)
+
+# (Optional) Order the data, if desired:
+indiv_data <- indiv_data %>% arrange(rep, sex, gy, time)
+
+# Make Sex and Dose (Gy) explicitly factors
+indiv_data$sex <- as.factor(indiv_data$sex)
+indiv_data$gy <- as.factor(indiv_data$gy)
+
+# One last look
+indiv_data
+```
+
+Note here that event = 1 mean "event happened" (moth died), and event = 0 means
+moth was last seen alive
+
+##  Use the Cox Proportional Hazards model to evaluate impact
+
+The R package 'Survival' will be used to implement the Cox model and evaluate
+the impact of sex and irradiation
+
+```{r cox, warning=FALSE, message=FALSE}
+library(survival)
+
+# Create the survival object
+surv_obj <- with(indiv_data, Surv(time = time, event = event))
+
+# Fit the Cox model (adjust predictors as appropriate)
+cox_fit <- coxph(surv_obj ~ sex + gy, data = indiv_data)
+
+# View parameter estimates for the printed model
+summary(cox_fit)
+```
+
+
+The Likelihood ratio and the Wald test provide similar results, but the former
+would be considered more robust for small data sets while the latter would be
+considered more informative for large data sets. The P value of 0.1 and the 
+concordance of 0.555 indicate that the model has not detected important effects.
+We can also examine the model using a type II ANOVA.
+
+```{r cox_type2, warning=FALSE, message=FALSE}
+library(car)
+print(Anova(cox_fit))
+```
+The type II analysis provides a simple and robust parameter estimates indicating
+"not significant" (or an almost significant effect of sex, if one wishes to 
+make that argument).
+
+Another way to examine the current model is to generate estimates of median 
+longevity. When the sexes are examined separately, the upper confidence 
+cannot be estimated in some cases.
+```{r km_p50_2way, warning=FALSE, message=FALSE}
+sfit_2way <- survfit(surv_obj ~ sex + gy, data = indiv_data)
+print(sfit_2way)
+```
+
+## Examination of irradiation only (sexes pooled)
+
+The primary purpose here is to get a more robust estimate of the 95% confidence
+interval for the median estimates.
+```{r cox_dose_only, warning=FALSE, message=FALSE}
+cox_fit_dose_only <- coxph(surv_obj ~ gy, data = indiv_data)
+Anova(cox_fit_dose_only)
+```
+Still not significant, in case anyone wondered. 
+```{r km_fit_dose_only, warning=FALSE, message=FALSE}
+km_fit <- survfit(surv_obj ~ gy, data = indiv_data)
+print(km_fit)
+```
+Using the pooled sexes provides a larger sample and allows an upper 95% CL
+for all doses, so this is probably better for reporting.
+
+For visualization, presenting survival curves for only the 0 and 300 Gy levels
+seems to offer a cleaner plot.
+```{r km_0gy300gy, warning=FALSE, message=FALSE}
+library(survminer)                  # Required for surv_fit() function
+# Create set with only 0 and 300 Gy
+indiv_data2 <- indiv_data %>% 
+  filter(gy == 0 | gy == 300)
+# Drop now unused levels
+indiv_data2$gy <- droplevels(indiv_data2$gy)
+
+# Create another survival object
+surv_obj2 <- with(indiv_data2, Surv(time = time, event = event))
+
+# Fit Kaplan-Meier Curve
+km_fit2 <- surv_fit(surv_obj2 ~ gy, data = indiv_data2)
+
+# Plot survival curves
+p1 <- ggsurvplot(km_fit2, data = indiv_data2, pval = FALSE,
+                 legend.title = "Dose", legend.labs = c("0 Gy","300 Gy")) 
+
+# Format the image to be saved
+p1$plot <- p1$plot + 
+  xlab("Day post irradiation") +
+  ylab("P(Survival)") +
+  theme(axis.text.x = element_text(color = "black", size = 10), 
+        axis.text.y = element_text(color = "black", size = 10),
+        axis.title.x = element_text(color = "black", size = 10),
+        axis.title.y = element_text(color = "black", size = 10),
+        legend.title = element_text(color = "black", size = 10),
+        legend.text = element_text(color = "black", size = 10))
+
+# Save the image to local storage, then display the image
+ggsave(filename = "survival_curve.jpg", plot = p1$plot,
+       width = 2.83, height = 1.89, dpi = 300)
+
+p1
+```
+
+## Examination of irradiation only (sexes pooled)
+
+In case we want to visualize the data in this manner, we can repeat the process
+in the previous section
+```{r km_sexes_ony, warning=FALSE, message=FALSE}
+# Since there are only two sexes, the earlier data set and surv_obj will work
+
+# Fit Kaplan-Meier Curve
+km_fit3 <- surv_fit(surv_obj ~ sex, data = indiv_data)
+
+# Plot survival curves
+p2 <- ggsurvplot(km_fit3, data = indiv_data2, pval = FALSE,
+                 legend.title = "Sex", legend.labs = c("Female","Male")) 
+
+# Format the image to be saved
+p2$plot <- p2$plot + 
+  xlab("Day post irradiation") +
+  ylab("P(Survival)") +
+  theme(axis.text.x = element_text(color = "black", size = 10), 
+        axis.text.y = element_text(color = "black", size = 10),
+        axis.title.x = element_text(color = "black", size = 10),
+        axis.title.y = element_text(color = "black", size = 10),
+        legend.title = element_text(color = "black", size = 10),
+        legend.text = element_text(color = "black", size = 10))
+
+# Save the image to local storage, then display the image
+ggsave(filename = "survival_curve_sex.jpg", plot = p2$plot,
+       width = 2.83, height = 1.89, dpi = 300)
+
+p2
+
+
+
+```
+
+

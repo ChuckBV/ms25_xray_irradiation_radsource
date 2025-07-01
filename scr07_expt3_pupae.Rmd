@@ -1,0 +1,168 @@
+---
+title: "Experiment 3 -- Pupal Development"
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Experiment 3--Pupae--Overview
+
+A third experiment examined whether emerged neonates observed in Experiment 2
+would continue to develop, thereby damaging their host. Males and females 
+irradiated at 250 and 350 Gy were compare to 0 Gy sham treatments. Response
+variables examined were the proportion of moths that mated, total fecundity,
+and the number of F1 that developed to the point of cocooning (prepupa or 
+pupa).
+
+## Mating
+
+Summarize the proportion of moths mated by dose and sex
+
+```{r load_mating_data, message=FALSE, warning=FALSE}
+# Load the data set
+library(readxl)
+df_mating350 <- read_excel("Dataset.xlsx", sheet = "Mating_350Gy")
+
+# Make dose a categorical variable
+df_mating350$Dose <- as.factor(df_mating350$Dose)
+df_mating350
+
+# Summarize data
+library(dplyr)
+library(tidyr)
+tbl_mating3 <- df_mating350 %>% 
+  group_by(Sex,Dose) %>% 
+  summarise(nObs = n(),
+            nMated = sum(Mated == "Yes"),
+            pct_mated = 100*nMated/nObs)
+tbl_mating3
+```
+
+
+Determine if there are significant differences with logistic regression
+
+```{r mating_logistic_model, message=FALSE, warning=FALSE}
+# Apply categorical logistic regression model
+m1 <- glm(cbind(nMated,nObs) ~ Sex + Dose, family = binomial, data = tbl_mating3)
+
+# Display basic Analysis of Deviance
+summary(m1)
+```
+
+```{r mating_model_fit, message=FALSE, warning=FALSE}
+# Examine model fit using residual deviance and residual degrees of freedom
+resid_dev <- deviance(m1)
+resid_df <- df.residual(m1)
+pchisq(resid_dev, df = resid_df, lower.tail = FALSE)
+``` 
+Far from 0.05--the model fits
+
+```{r mating_type2_test, message=FALSE, warning=FALSE}
+library(car)
+# Type II test for predictors
+Anova(m1)
+```
+No significant effect on mating due to sex or dose
+
+## Effect of 250 and 350 Gy on total fecundity
+
+Total fecundity in this case is actually the total number of eggs laid over
+3 days following mating
+
+```{r load_egg_dat, message=FALSE, warning=FALSE}
+library(dplyr)
+library(FSA)                 # for se() function
+
+# Load egg data
+df_eggs350 <- read_excel("Dataset.xlsx", sheet = "Oviposition_350Gy")
+
+# Make dose categorical
+df_eggs350$dose <- as.factor(df_eggs350$dose)
+
+# Summarize eggs by sex irradiated and x-ray dose
+df_eggs350 %>% 
+  group_by(Sex,dose) %>% 
+  summarise(nObs = sum(!is.na(Eggs)), 
+            mn = mean(Eggs, na.rm = TRUE),
+            sem = se(Eggs))
+```
+
+Test for significant effects using a GLM with negative binomial distribution
+
+```{r eggs350_glm_nb}
+
+# Examine GLM for eggs
+m2 <- MASS::glm.nb(Eggs ~ Sex + dose, data = df_eggs350)
+summary(m2)
+```
+
+```{r eggs350_glm_fit}
+# Examine model fit
+resid_dev2 <- deviance(m2)
+resid_df2 <- df.residual(m2)
+pchisq(resid_dev2, df = resid_df2, lower.tail = FALSE)
+```
+Residual deviance not significantly different from expected value
+
+```{r glm_eggs_type2, message=FALSE, warning=FALSE}
+# Type II test for female eggs
+Anova(m2)
+```
+Differences in eggs per female between doses are not significant for irradiated
+females
+
+
+## Pupae per female
+
+Report mean and standard error of F1 cocoons per female by irradiated sex
+
+```{r load_cocoon_dat, message=FALSE, warning=FALSE}
+df_pupae350 <- read_excel("Dataset.xlsx", sheet = "Development_350Gy")
+
+# Rename irradiation variable and make it categorical
+names(df_pupae350)[names(df_pupae350) == "TrtLabel"] <- "Dose"
+df_pupae350$Dose <- as.factor(df_pupae350$Dose)
+
+# Get cocoons per female by Sex irradiated and dose
+df_pupae350 %>% 
+  group_by(Sex, Dose) %>% 
+  summarise(nObs = sum(!is.na(Pupae)),
+            mn = mean(Pupae, na.rm = TRUE),
+            sem = se(Pupae))
+```
+
+Use GLM with nb to perform Analysis of Deviance examining impact of sex and 
+irradiation
+
+```{r fit_model, message=FALSE, warning=FALSE}
+m3 <- MASS::glm.nb(Pupae ~ Sex + Dose, data = df_pupae350)
+summary(m3)
+```
+```{r cocoons_model_fit, message=FALSE, warning=FALSE}
+# Examine model fit
+resid_dev3 <- deviance(m3)
+resid_df3 <- df.residual(m3)
+pchisq(resid_dev3, df = resid_df3, lower.tail = FALSE)
+```
+The ns value indicates no evidence of lack of model fit. Examine type II
+Analysis of Deviance
+
+```{r glm_cocoons_type2, message=FALSE, warning=FALSE}
+# Type II test for female eggs
+Anova(m3)
+```
+
+Examine differences of means for Dose
+
+```{r expt3_cocoons_emmeans, message=FALSE, warning=FALSE}
+library(emmeans)
+library(multcomp)
+emm <- emmeans(m3, ~ Dose, type = "response")
+multcomp::cld(emm, Letters = LETTERS, decreasing = TRUE)
+```
+
+

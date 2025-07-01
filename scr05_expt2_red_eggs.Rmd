@@ -1,0 +1,146 @@
+---
+title: "Experiment 2 -- Red Eggs"
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Experiment 2 Red Eggs--Overview    
+
+As mentioned in the previous document, the red egg stage is the second of three
+developmental stages at which egg viability was assessed. In normal development,
+there is a near total correlation between egg viability and eggs turning from
+white to red. Irradiation, however, can cause fatal developmenal problems 
+aftere this color shift which reduced the reliablity of egg color as an 
+indicator of fertility. As previously, the sexes are separated because of 
+expected differences in radiosensitivy and the proportion of red eggs are 
+by x-ray treatment (0, 100, 200, 300, or 400 Gy)
+
+```{r load_data}
+library(readxl)
+# Load data and display first few rows
+df_red <- read_excel("Dataset.xlsx", sheet = "Development_400Gy")
+
+# Set x-ray dose as a factor (categorical)
+df_red$dose <- as.factor(df_red$dose)
+```
+
+Separate sexes
+
+```{r fem_dat, message=FALSE, warning=FALSE}
+library(dplyr)
+# Isolate data for females and display the first few rows
+females <- df_red %>% 
+  filter(sex == "female")
+females
+```
+
+```{r male_dat, message=FALSE, warning=FALSE}
+# Isolate data for males and display the first few rows
+males <- df_red %>% 
+  filter(sex == "male")
+males
+```
+
+
+## Summary and statistical analysis of red eggs from irradiated females
+
+```{r fem_trt_means, message=FALSE, warning=FALSE}
+library(FSA)            # for SE
+# n, mean, and SE by dose for females
+females %>% 
+  group_by(dose) %>%
+  summarise(nObs = sum(!is.na(sum_red)),
+            mn = mean(sum_red, na.rm = TRUE),
+            sem = se(sum_red),
+            pct_sterile = 100*(1-(sum(sum_red > 0)/nObs)))
+```
+
+The mean and SE are consistent with overdispersed count data. The negative 
+binomial is appropriate for such data. The percent sterility calculation
+reminds us that some females are laying at least some red eggs.
+
+```{r females_nb, message=FALSE, warning=FALSE}
+# Analysis of Deviance using GLM with negative binomial--females
+library(MASS)
+m1 <- MASS::glm.nb(sum_red ~ dose, data = females)
+summary(m1)
+```
+Examine model fit for females
+
+```{r fem_model_fit,  message=FALSE, warning=FALSE}
+# Calculate p-value under the chi-squared distribution
+dev <- deviance(m1)
+df <- df.residual(m1)
+p_value <- pchisq(dev, df, lower.tail = FALSE)
+cat("Chi-square goodness-of-fit p-value:", p_value, "\n")
+```
+The residual deviance is not significantly different (P > 0.05) from the 
+expected value for the residual degrees of freedom.
+
+```{r female_type2, message=FALSE, warning=FALSE}
+library(car)
+# Model parameters with type II degrees of freedom
+Anova(m1)
+```
+Overall, there were significant differences. Proceeding to comparisons of 
+multiple means.
+
+
+```{r female_meanssep, message=FALSE, warning=FALSE}
+library(emmeans)
+library(multcomp)
+# Means separation
+emm_fem <- emmeans(m1, ~ dose, type = "response")
+multcomp::cld(emm_fem, Letters = LETTERS, decreasing = TRUE)
+```
+
+## Summary and statistical analysis of red eggs from females mated with irradiated males
+
+```{r male_trt_means}
+# n, mean, and SE by dose for females
+males %>% 
+  group_by(dose) %>%
+  summarise(nObs = sum(!is.na(sum_red)),
+            mn = mean(sum_red, na.rm = TRUE),
+            sem = se(sum_red),
+            pct_sterile = 100*(1-(sum(sum_red > 0)/nObs)))
+```
+
+```{r males_nb, message=FALSE, warning=FALSE}
+# Analysis of Deviance using GLM with negative binomial--males
+m2 <- MASS::glm.nb(sum_red ~ dose, data = males)
+summary(m2)
+```
+
+Examine model fit for males
+
+```{r male_model_fit,  message=FALSE, warning=FALSE}
+# Calculate p-value under the chi-squared distribution
+dev <- deviance(m2)
+df <- df.residual(m2)
+p_value <- pchisq(dev, df, lower.tail = FALSE)
+cat("Chi-square goodness-of-fit p-value:", p_value, "\n")
+```
+The residual deviance is not significantly different (P > 0.05) from the 
+expected value for the residual degrees of freedom.
+
+```{r male_type2, message=FALSE, warning=FALSE}
+# Model parameters with type II degrees of freedom
+Anova(m2)
+```
+
+Overall, there were significant differences. Proceeding to comparisons of 
+multiple means.
+
+
+```{r male_meanssep, message=FALSE, warning=FALSE}
+# Model parameters with type II degrees of freedom
+emm_males <- emmeans(m2, ~ dose, type = "response")
+multcomp::cld(emm_males, Letters = LETTERS, decreasing = TRUE)
+```
+

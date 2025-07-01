@@ -1,0 +1,142 @@
+---
+title: "Experiment 2 -- Total Fecundity"
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Experiment 2 Total Fecundity--Overview
+
+For Experiment 2 eggs were counted at 3 points: soon after they were laid 
+(all eggs, total fecundity), when they turned red (indication of fertility,
+but complicated by irradiation), and when the headcapsule of a neonate was
+visible (blackhead stage, killed at this point.). Here we compare total 
+fecundity.
+
+```{r load_data, message=FALSE, warning=FALSE}
+library(readxl)
+# Load data and display first few rows
+df_all <- read_excel("Dataset.xlsx", sheet = "Oviposition_400Gy")
+
+# Set x-ray dose as a factor
+df_all$dose <- as.factor(df_all$dose)
+```
+
+
+```{r fem_dat, message=FALSE, warning=FALSE}
+library(dplyr)
+# Isolate data for females and display the first few rows
+females <- df_all %>% 
+  filter(sex == "female")
+females
+```
+
+```{r male_dat, message=FALSE, warning=FALSE}
+# Isolate data for males and display the first few rows
+males <- df_all %>% 
+  filter(sex == "male")
+males
+```
+
+
+## Summary and statistical analysis of female total fecundity
+
+```{r fem_trt_means, message=FALSE, warning=FALSE}
+library(FSA)            # for SE
+# n, mean, and SE by dose for females
+females %>% 
+  group_by(dose) %>%
+  summarise(nObs = sum(!is.na(sum_white)),
+            mn = mean(sum_white, na.rm = TRUE),
+            sem = se(sum_white))
+```
+
+We are comparing the sexes separately from the start on the grounds that there
+is an abundant peer-reviewed literature indicating that difference in 
+radiosensitivity in Lepidoptera is the rule rather than the exception. Starting
+here with females.
+
+Data distribution: The data above suggest similar means and standard errors
+between the treatments, which is consistent with traditional ANOVA (Gaussian 
+error distribution). Not shown--the hist() function (native R) and the Desc()
+function (DescTools) suggest a slight right skew but a box plot of the data
+that is part of the the Desc() function output suggests that the mean is 
+reasonably centered. Playing with the Poisson, quasi, and quasipoisson family in 
+glm() and negative binomial from MASS finds poor model fit as determined by 
+examining pchisq() for the residual deviance and residual degrees of freedom. 
+The glm() function with a gamma distribution provides good model fit, but does 
+not provide different information compared to the plain ANOVA approach.
+
+
+```{r fem_anova}
+# m1 -- 1 way ANOVA for females
+m1 <- aov(sum_white ~ dose, data = females)
+summary(m1)
+```
+Now use a residuals plot to check model fit
+
+```{r fem_resid_check}
+# Extract the fitted (predicted) values and residuals from the model
+pred_values <- fitted(m1)
+residuals_val <- residuals(m1)
+
+# Create the residual vs predicted plot
+plot(pred_values, residuals_val,
+     xlab = "Predicted Values",
+     ylab = "Residuals",
+     main = "Residuals vs Predicted Values",
+     pch = 19, col = "blue")
+abline(h = 0, col = "red", lty = 2)
+```
+
+Good enough for the present purpose--due diligence done.
+
+## Summary and statistical analysis of male total fecundity
+ 
+```{r male_trt_means, message=FALSE, warning=FALSE}
+# n, mean, and SE by dose for males
+males %>% 
+  group_by(dose) %>%
+  summarise(nObs = sum(!is.na(sum_white)),
+            mn = mean(sum_white, na.rm = TRUE),
+            sem = se(sum_white))
+```
+
+After examining several alternatives as described above for the female data set,
+the MASS package (from the 2002 book "Modern Applied Statistics with S" by 
+Venables and Ripley) was used to apply a GLM with binomial distribution. Model
+diagnostics indicate that this is the correct model, but no significant 
+differences were found.
+
+```{r male_glm, message=FALSE, warning=FALSE}
+# Fit GLM with negative binomial
+library(MASS)
+m2 <- glm.nb(sum_white ~ dose, data = males)
+summary(m2)
+```
+```{r male_model_fit, message=FALSE, warning=FALSE}
+# Examine fit using Deviance fit
+pchisq(42.807,32,lower.tail = F)
+```
+
+A value of < 0.05 would definitively indicate poor model fit. As it is, 
+negative binomial is a logical choice for over-dispersed count data that 
+includes 0s, and this test suggests model fit is good enough.
+
+Using the Anova() function from the car package to get a type II analysis:
+
+```{r male_type2, message=FALSE, warning=FALSE}
+library(car)
+# Model parameters with type II degrees of freedom
+Anova(m2)
+```
+
+
+The P value with type II degree of freedom says "not significant". 
+While the raw model summary indicates P < 0.05 for 400 Gy vs. 0 Gy,
+that is without the type II adjustment and would of course be lost after
+adjusting for multiple comparisons. 
