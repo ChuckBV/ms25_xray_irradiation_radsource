@@ -160,9 +160,6 @@ surv_obj2 <- with(indiv_data2, Surv(time = time, event = event))
 # Fit Kaplan-Meier Curve
 km_fit2 <- surv_fit(surv_obj2 ~ gy, data = indiv_data2)
 
-# Save km_fit2 as an RData object for subsequent creation of graphics
-save(km_fit2, file = "km_fit_0_300gy_boths_sexes.RData")
-
 # Plot survival curves
 p1 <- ggsurvplot(km_fit2, data = indiv_data2, pval = FALSE,
                  legend.title = "Dose", legend.labs = c("0 Gy","300 Gy")) 
@@ -195,9 +192,6 @@ in the previous section
 # Fit Kaplan-Meier Curve
 km_fit3 <- surv_fit(surv_obj ~ sex, data = indiv_data)
 
-# Save km_fit2 as an RData object for subsequent creation of graphics
-save(km_fit3, file = "km_fit_male_v_fem_all_doses.RData")
-
 # Plot survival curves
 p2 <- ggsurvplot(km_fit3, data = indiv_data2, pval = FALSE,
                  legend.title = "Sex", legend.labs = c("Female","Male")) 
@@ -223,4 +217,9 @@ p2
 
 ```
 
+Final step--save both p1 and p2 in an RData file so the graphics can be tweaked and combined in a separate session.
+
+```{r save_plots}
+save(p1, p2, file = "surv_plots.RData")
+```
 
