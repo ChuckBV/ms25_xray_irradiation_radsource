@@ -3,7 +3,7 @@
 https://github.com/ChuckBV/ms25_xray_irradiation_radsource
 
 The data come from a series of experiments conducted on navel orangeworm adults 
-in 2022 and 2023 by Dylan Tussey using a Radsource RS1800-Q irradiator. 
+in 2022 and 2023 using a Radsource RS1800-Q irradiator. 
 This respository is organized as a single directory containing data sets in 
 a single  Excel file ("Dataset.xlsx") and a series of R Markdown files providing 
 and explaining summary and analysis of the experiments. The files were output as 
