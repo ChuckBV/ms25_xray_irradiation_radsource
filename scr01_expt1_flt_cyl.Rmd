@@ -59,8 +59,12 @@ df_fltcyl$dose <- as.factor(df_fltcyl$dose)
 df_fltcyl$n <- 10
 df_fltcyl <- df_fltcyl %>% rename(y = twentyfour_out)
 
+# Create parameter for non-event
+df_fltcyl <- df_fltcyl %>% 
+  mutate(not_y = n - y)
+
 # Fit a logistic regression model using glm with binomial family
-m1 <- glm(cbind(y,n) ~ sex * dose, data = df_fltcyl, family = binomial)
+m1 <- glm(cbind(y,not_y) ~ sex * dose, data = df_fltcyl, family = binomial)
 
 # Perform analysis of deviance using ANOVA for the GLM
 anova_results <- anova(m1, test = "Chisq")
@@ -77,15 +81,3 @@ library(car)
 Anova(m1, type = "II")
 ```
 
-## T-test of effect of sex
-
-The binomial GLM indicates that the effect of sex is not statistically 
-significant. The Welch t-test fits broadly because it adjusts to differences in
-standard error between treatment effects. It seems to indicate that there is
-a significant difference, but it can also be argued that the assumptions for 
-the t-test do not adequately account for the upper number of moths leaving 
-being bounded at 10.
-
-```{r}
-t.test(y ~ sex, data = df_fltcyl)
-```
