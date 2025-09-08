@@ -146,7 +146,7 @@ for all doses, so this is probably better for reporting.
 
 For visualization, presenting survival curves for only the 0 and 300 Gy levels
 seems to offer a cleaner plot.
-```{r km_0gy300gy, warning=FALSE, message=FALSE}
+```{r km_0gy300gy}#, warning=FALSE, message=FALSE}
 library(survminer)                  # Required for surv_fit() function
 # Create set with only 0 and 300 Gy
 indiv_data2 <- indiv_data %>% 
@@ -165,7 +165,7 @@ p1 <- ggsurvplot(km_fit2,
                  data = indiv_data2, 
                  pval = FALSE,
                  palette  = c("black", "black"),   # both curves in black
-                 linetype = c("solid", "dashed"),   # one solid, one dashed
+                 linetype = c("solid", "dotted"),   # one solid, one dotted
                  legend.title = "Dose", 
                  legend.labs = c("0 Gy","300 Gy")) 
 
@@ -181,7 +181,9 @@ p1$plot <- p1$plot +
         legend.text = element_text(color = "black", size = 10))
 
 # Save the image to local storage, then display the image
-ggsave(filename = "survival_curve.jpg", plot = p1$plot,
+ggsave(filename = "survival_curve.tif", 
+       plot = p1$plot,
+       device = "tiff",
        width = 2.83, height = 1.89, dpi = 300)
 
 p1
@@ -202,7 +204,7 @@ p2 <- ggsurvplot(km_fit3,
                  data = indiv_data2, 
                  pval = FALSE,
                  palette  = c("black", "black"),   # both curves in black
-                 linetype = c("solid", "dashed"),   # one solid, one dashed
+                 linetype = c("solid", "dotted"),   # one solid, one dotted
                  legend.title = "Sex", 
                  legend.labs = c("Female","Male")) 
 
