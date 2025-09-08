@@ -161,8 +161,13 @@ surv_obj2 <- with(indiv_data2, Surv(time = time, event = event))
 km_fit2 <- surv_fit(surv_obj2 ~ gy, data = indiv_data2)
 
 # Plot survival curves
-p1 <- ggsurvplot(km_fit2, data = indiv_data2, pval = FALSE,
-                 legend.title = "Dose", legend.labs = c("0 Gy","300 Gy")) 
+p1 <- ggsurvplot(km_fit2, 
+                 data = indiv_data2, 
+                 pval = FALSE,
+                 palette  = c("black", "black"),   # both curves in black
+                 linetype = c("solid", "dashed"),   # one solid, one dashed
+                 legend.title = "Dose", 
+                 legend.labs = c("0 Gy","300 Gy")) 
 
 # Format the image to be saved
 p1$plot <- p1$plot + 
@@ -193,8 +198,13 @@ in the previous section
 km_fit3 <- surv_fit(surv_obj ~ sex, data = indiv_data)
 
 # Plot survival curves
-p2 <- ggsurvplot(km_fit3, data = indiv_data2, pval = FALSE,
-                 legend.title = "Sex", legend.labs = c("Female","Male")) 
+p2 <- ggsurvplot(km_fit3, 
+                 data = indiv_data2, 
+                 pval = FALSE,
+                 palette  = c("black", "black"),   # both curves in black
+                 linetype = c("solid", "dashed"),   # one solid, one dashed
+                 legend.title = "Sex", 
+                 legend.labs = c("Female","Male")) 
 
 # Format the image to be saved
 p2$plot <- p2$plot + 
