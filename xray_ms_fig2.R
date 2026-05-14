@@ -33,5 +33,22 @@ p1 <- ggplot(df, aes(x = dose, y = survivorship, color = sex, linetype = sex, sh
        linetype = "Sex irradiated", 
        shape = "Sex irradiated",
        x = "Dose (Gy)",
-       y = "Development to red stage") +
-  theme_minimal()
+       y = "Development to red stage")
+
+p1
+
+p1 <- p1 +
+  theme_bw() +
+  theme(axis.text.x = element_text(color = "black", size = 10), 
+        axis.text.y = element_text(color = "black", size = 10),
+        axis.title.x = element_text(color = "black", size = 10),
+        axis.title.y = element_text(color = "black", size = 10),
+        legend.title = element_text(color = "black", size = 10),
+        legend.text = element_text(color = "black", size = 10))
+
+p1
+
+ggsave(filename = "dose_response_red.tif", 
+       plot = p1,
+       device = "tiff",
+       width = 5.83, height = 2.83, dpi = 300)
